@@ -37,7 +37,7 @@ app.use(session({
 app.get("/login", (req, res) => {
     
     if(req.session.isLoggedin == true){
-    res.render("homepage", { error: null });
+    res.render("homepage", {error:null});
     }
     else{
         res.render("login", { error: null });
@@ -49,7 +49,7 @@ app.get('/register', (req, res) => {
 
      
     if(req.session.isLoggedin == true){
-    res.render("homepage", { error: null });
+    res.render("homepage", {user:req.session.user,auth:true});
     }
     else{
         res.render("Register", { user: null, error: null });
@@ -80,6 +80,37 @@ app.get('/wishlist', (req, res) => {
     else res.render("login", { error: null });
 })
 
+app.get('/yourcourses', (req, res) => {
+    if (req.session.isLoggedin == true){
+        
+         userSchema.findOne({username : req.session.user.username}).then( user =>  {
+            
+            user.populate({
+                path: 'purchased',
+                populate:{
+                    path: 'teacher'
+
+                }
+            }).then(()=>{
+                
+            res.render('yourcourses',{user: user})
+        })}
+        )}
+        
+    
+
+    else res.render("login", { error: null });
+})
+
+app.get('/instructor', async (req, res) => {
+    if(req.session.isLoggedin == true){
+        res.render("instructor",{user:req.session.user,auth:req.session.isLoggedin});
+        }
+        else{
+            res.render("instructor",{auth:false})
+        }
+})
+
 
 app.get("/add-to-wl/:course", (req, res) => {
     if(req.session.isLoggedin){
@@ -93,15 +124,22 @@ app.get("/add-to-wl/:course", (req, res) => {
         if(ind == -1){
             wishlist.push(courseid)
         }
+
+        if(user2.purchased.indexOf(courseid) == -1){
         
         userSchema.findByIdAndUpdate(user2._id,{wishlist:wishlist},{new:true}).then(()=>{
                     console.log("Added To Wishlist")
                     res.redirect("/coursedescpage/"+courseid)
-        })}
+                }
+            )}
+        
+        else{
+            res.redirect("/coursedescpage/"+courseid)
+        }
                 
         
 
-
+    }
     else{
         res.render('login', { error: null });
     }
@@ -110,20 +148,30 @@ app.get("/add-to-wl/:course", (req, res) => {
 
 app.get("/", (req, res) => {
     // req.session.isLoggedin
-    res.render("homepage");
+    if(req.session.isLoggedin == true){
+        res.render("homepage",{user:req.session.user,auth:req.session.isLoggedin});
+        }
+        else{
+            res.render("homepage",{auth:false})
+        }
 })
 
 app.get("/contactus", (req, res) => {
     
-    res.render("contactus");
+    if(req.session.isLoggedin == true){
+        res.render("contactus",{user:req.session.user,auth:req.session.isLoggedin});
+        }
+        else{
+            res.render("contactus",{auth:false})
+        }
 });
 
 app.get("/checkout", (req, res) => {
     if(req.session.isLoggedin == true){
-    res.render("homepage");
+    res.render("homepage",{user:req.session.user,auth:req.session.isLoggedin});
     }
     else
-    res.render("login",{error: "You must be logged in"})
+    res.render("login",{error: null})
 })
 
 app.get("/checkout/:coursename", (req, res) => {
@@ -176,7 +224,7 @@ app.post("/remove-wishlist/:Id",async (req,res)=>{
                             }
                         }).then(()=>{
                             
-                        res.render('wishlist',{user: user})
+                        res.redirect('/wishlist')
                     })})
                     
                     
@@ -190,8 +238,48 @@ app.post("/remove-wishlist/:Id",async (req,res)=>{
         })
     
 })
+
+
+
+app.get('/teacher-profile',(req, res) => {
+    return res.render('teacher-profile');
+})
+
+app.get('/upload-course',(req, res) => {
+    return res.render('upload-course');
+})
+
+app.get('/student-profile',(req, res) => {
+    return res.render('student-profile');
+})
+
+
+app.get('/admin-profile',(req, res) => {
+    return res.render('admin-profile');
+})
+
+
+app.get('/manage-contactus',(req, res) => {
+    return res.render('manage-contactus');
+})
+
+
+app.get('/manage-user',(req, res) => {
+    return res.render('manage-user');
+})
+
+app.get('/manage-teacher',(req, res) => {
+    return res.render('manage-teacher');
+})
+
+
+
+
+
+
 app.get('/coursedescpage/:courseid', (req, res) => {
 
+    
     courseid = req.params.courseid
 
     coursesSchema.findOne({_id: courseid}).then((course) => {
@@ -200,20 +288,80 @@ app.get('/coursedescpage/:courseid', (req, res) => {
         } else{
             course.populate('teacher').then((course)=>{
                 console.log(course)
-                
-            res.render("coursedescpage",{user: req.session.user,course:course,auth:req.session.isLoggedin})     
-        })}
+                if(req.session.isLoggedin){
+                    res.render("coursedescpage",{user: req.session.user,course:course,auth:true})     
+                }
+                else{
+                    res.render("coursedescpage",{user: null,course:course,auth:false})
+                }
+            }
+        )}
     });
 })
 
-app.get("/catalogue", (req, res) => {
-    if(req.session.isLoggedin == true){
-    res.render("catalogue");
+function shuffleArray(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
     }
-    else{
-        res.render("login",{error:null})
-    }
-});
+}
+
+app.get("/catalogue", async (req, res) => {
+    rock = []
+    beginner = []
+    await coursesSchema.find({}).then( async (course) => {
+            
+        populatedcourse = []
+        for(let i = 0; i < course.length; i++){          
+           await course[i].populate('teacher').then((ct)=>{
+                populatedcourse.push(ct)
+            })
+        }
+
+        
+        rock = populatedcourse.filter(obj => {
+            return obj.category === "rock"
+          })
+        shuffleArray(rock)
+
+          
+        beginner = populatedcourse.filter(obj => {
+            return obj.category === "beginner"
+          })
+        shuffleArray(beginner)
+        
+        metal = populatedcourse.filter(obj => {
+            return obj.category === "metal"
+          })
+        shuffleArray(metal)
+        
+        blues = populatedcourse.filter(obj => {
+            return obj.category === "blues"
+          })
+          shuffleArray(blues)
+        
+        
+        
+        });
+
+        if(req.session.isLoggedin == true){
+        res.render("catalogue",{rock:rock,
+                                beginner:beginner,
+                                metal:metal,
+                                blues:blues,
+                                user:req.session.user,
+                                auth:req.session.isLoggedin});
+        }
+        else{
+            res.render("catalogue",{rock:rock,
+                                    beginner:beginner,
+                                    metal:metal,
+                                    blues:blues,
+                                    auth:false})
+        }
+    });
 
 app.post("/purchase/:coursename",(req,res) =>{
     
@@ -343,10 +491,15 @@ app.post('/login', (req, res) => {
 app.get("/logout", (req, res) => {
     req.session.destroy();
     console.log('over')
-    res.render("homepage")
+    res.redirect("/")
 
 
 });
+
+app.get('*', function(req, res){
+    res.status(404).render('pagenotfound');
+    
+  });
 
 const PORT = 8000;
 app.listen(PORT, (req, res) => {

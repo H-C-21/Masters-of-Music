@@ -240,7 +240,7 @@ app.post("/remove-wishlist/:Id",async (req,res)=>{
 })
 
 
-
+// Teachers  Routes
 app.get('/teacher-profile',(req, res) => {
     return res.render('teacher-profile');
 })
@@ -253,7 +253,7 @@ app.get('/student-profile',(req, res) => {
     return res.render('student-profile');
 })
 
-
+//  Admin routes 
 app.get('/admin-profile',(req, res) => {
     return res.render('admin-profile');
 })
